@@ -1,0 +1,55 @@
+---
+- hosts: rpi4
+  remote_user: pi
+  become: yes
+  become_method: sudo
+  roles:
+    - rclone
+  vars:
+    rclone_arch: "arm"
+    rclone_config_location: "/home/pi/.config/rclone/rclone.conf"
+    rclone_configs:
+      - name: pCloud
+        properties:
+          type: pcloud
+          token: '{"access_token":"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX","token_type":"bearer","expiry":"0001-01-01T00:00:00Z"}'
+  tasks:
+    - name: Upgrade all packages to latest version
+      apt:
+        update_cache: yes
+        upgrade: dist
+    - name: Ensure kodi (and stuff to debug stuff...) is installed
+      apt:
+        pkg:
+          - kodi
+          - vim
+          - htop
+        state: present
+        install_recommends: yes
+    - name: Give rclone config dir back to pi user
+      file:
+        path: /home/pi/.config/rclone
+        state: directory
+        recurse: yes
+        owner: pi
+        group: pi
+    - name: Copy Service Template for rclone
+      tags: mounting
+      copy:
+        src: ../rclone_config_stuff/rclone_template.service
+        dest: /etc/systemd/system/rclone_pcloud_serve@.service
+    - name: Copy rclone serve config files
+      tags: mounting
+      synchronize:
+        src: ../rclone_config_stuff/
+        dest: /home/pi/.config/pCloud_configs
+    - name: just force systemd to reread configs
+      tags: mounting
+      systemd:
+        daemon_reload: yes
+    - name: Start and enable Serien
+      tags: mounting
+      systemd:
+        state: started
+        enabled: yes
+        name: rclone_pcloud_serve@series.service

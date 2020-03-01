@@ -1,0 +1,14 @@
+[Unit]
+Description=Serving %I at 127.0.0.1:${PCLOUD_PORT}
+After=network.target network-online.target nss-lookup.target multi-user.target
+
+[Service]
+EnvironmentFile=/home/pi/.config/pCloud_configs/%i.config
+Restart=always
+User=pi
+Group=pi
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/rclone serve http pCloud:${PCLOUD_DIRECTORY} --addr 127.0.0.1:${PCLOUD_PORT}
+
+[Install]
+WantedBy=multi-user.target
