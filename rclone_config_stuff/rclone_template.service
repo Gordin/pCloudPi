@@ -1,10 +1,13 @@
 [Unit]
 Description=Serving %I at 127.0.0.1:${PCLOUD_PORT}
 After=network.target network-online.target nss-lookup.target multi-user.target
+StartLimitIntervalSec=0
+StartLimitBurst=999
 
 [Service]
 EnvironmentFile=/home/pi/.config/pCloud_configs/%i.config
 Restart=always
+RestartSec=2
 User=pi
 Group=pi
 RemainAfterExit=yes
