@@ -7,7 +7,7 @@
     - rclone
   vars:
     rclone_arch: "arm"
-    rclone_config_location: "/home/pi/.config/rclone/rclone.conf"
+    rclone_config_location: "/home/pi/.rclone.conf"
     rclone_configs:
       - name: pCloud
         properties:
@@ -18,19 +18,38 @@
       apt:
         update_cache: yes
         upgrade: dist
+    - name: Add pi to groups
+      user: name=pi state=present groups={{ item }} append=yes
+      with_items:
+        - audio
+        - video
+        - input
+        - dialout
+        - plugdev
+        - tty
     - name: Ensure kodi (and stuff to debug stuff...) is installed
       apt:
         pkg:
+          - rsync
           - kodi
           - vim
           - htop
+          - python3
+          - ipython3
+          - python3-pip
         state: present
         install_recommends: yes
-    - name: Give rclone config dir back to pi user
+    - name: Give config dir back to pi user
       file:
-        path: /home/pi/.config/rclone
+        path: /home/pi/.config
         state: directory
         recurse: yes
+        owner: pi
+        group: pi
+    - name: Give rclone config dir back to pi user
+      file:
+        path: /home/pi/.rclone.conf
+        state: file
         owner: pi
         group: pi
     - name: Copy Service Template for rclone
@@ -38,6 +57,11 @@
       copy:
         src: ../rclone_config_stuff/rclone_template.service
         dest: /etc/systemd/system/rclone_pcloud_serve@.service
+    - name: Copy Service file for Kodi
+      tags: mounting
+      copy:
+        src: ../rclone_config_stuff/kodi.service
+        dest: /etc/systemd/system/kodi.service
     - name: Copy rclone serve config files
       tags: mounting
       synchronize:
@@ -53,3 +77,40 @@
         state: started
         enabled: yes
         name: rclone_pcloud_serve@series.service
+    - name: Start and enable Movies
+      tags: mounting
+      systemd:
+        state: started
+        enabled: yes
+        name: rclone_pcloud_serve@movies.service
+    - name: Start and enable Kodi
+      tags: mounting
+      systemd:
+        state: started
+        enabled: yes
+        name: kodi.service
+    - name: Wait for kodi to create config files
+      wait_for:
+        path: /home/pi/.kodi/userdata/Database/MyVideos116.db
+    - name: Stop Kodi to add sources
+      tags: mounting
+      systemd:
+        state: stopped
+        enabled: yes
+        name: kodi.service
+    - name: Add movie source to kodi
+      script:
+        cmd: ../add_source.py add_from_config /home/pi/.config/pCloud_configs/movies.config
+      args:
+        executable: python3
+    - name: Add series source to kodi
+      script:
+        cmd: ../add_source.py add_from_config /home/pi/.config/pCloud_configs/series.config
+      args:
+        executable: python3
+    - name: Start Kodi again...
+      tags: mounting
+      systemd:
+        state: started
+        enabled: yes
+        name: kodi.service
